@@ -1,0 +1,82 @@
+name: Aggiorna progetti ambientali
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # ogni 6 ore
+  workflow_dispatch:        # permette di lanciarlo manualmente da GitHub
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installa dipendenze
+        run: pip install -r requirements.txt
+
+      - name: Esegui script
+        run: python update_projects.py
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+      - name: Commit e push del file aggiornato
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git diff --staged --quiet || git commit -m "Aggiornamento automatico progetti ambientali"
+          git push
+```
+
+Punti critici (dove di solito si rompe tutto):
+- `permissions: contents: write` è **obbligatorio**, altrimenti il push fallisce con errore di permessi.
+- I nomi dei secrets (`TAVILY_API_KEY`, `GROQ_API_KEY`) devono coincidere **esattamente** (case-sensitive) con quelli creati in GitHub.
+- `git diff --staged --quiet || git commit ...` evita errori quando non ci sono modifiche da committare (altrimenti `git commit` fallisce se non c'è nulla da salvare).
+
+---
+
+## 7. Configurazione dei Secrets su GitHub
+
+1. Vai nel repository → **Settings** → **Secrets and variables** → **Actions**
+2. **New repository secret**
+   - Nome: `TAVILY_API_KEY` → valore: la tua chiave Tavily
+   - Nome: `GROQ_API_KEY` → valore: la tua chiave Groq
+
+Non serve nessun altro secret (niente Supabase URL/KEY).
+
+---
+
+## 8. Frontend
+
+### `index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor Progetti Ambientali</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Progetti Ambientali</h1>
+    <p id="last-update">Caricamento...</p>
+  </header>
+
+  <main id="projects"></main>
+
+  <script src="script.js"></script>
+</body>
+</html>
